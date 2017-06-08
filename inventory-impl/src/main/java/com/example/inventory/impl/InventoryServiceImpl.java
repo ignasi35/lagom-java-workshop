@@ -39,7 +39,28 @@ public class InventoryServiceImpl implements InventoryService {
         this.basketService = basketService;
         registry.register(InventoryEntity.class);
 
-        // Exercise 5: consume basket events and decrease inventory when a basketCheckout arrives.
+        // this solution is naïve on the approach and wrong altogether in the implementation
+        //  a) when applying a filter in the akka stream, the message is missaligned with the offset
+        //  b) updating the inventory should be handled in a way that if a product is out of stock an event is
+        //     raised and the shppoing-user is notified so she can decide what to do. Also, the out-of-stock product
+        //     must be reimbursed. All this corrective actions are not implemented, on the contrary: when the
+        //     InventoryEntity detects there's not enough stock for a given Deacrease operation an exception is throw.
+        //     Instead, an event other downstream services can listen to would be more appropriate.
+        // I will try to get (a) fixed on further versions of this workshop.
+        //
+        basketService.basketEvents().subscribe().atLeastOnce(
+                Flow.<BasketEvent>create()
+                        .filter(b -> b instanceof BasketEvent.BasketCheckedOut)
+                        .mapConcat(basketEvent -> {
+                            BasketEvent.BasketCheckedOut event = (BasketEvent.BasketCheckedOut) basketEvent;
+                            return event.getBasket().getItems();
+                        })
+                        .mapAsync(1, basketItem ->
+                                refFor(basketItem.getId())
+                                        .ask(new DecreaseInventory(basketItem.getId(), basketItem.getCount()))
+                        ).map(ignored -> Done.getInstance())
+        );
+
     }
 
     @Override
