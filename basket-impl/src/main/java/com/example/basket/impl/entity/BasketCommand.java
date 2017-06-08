@@ -13,6 +13,9 @@ public interface BasketCommand extends Jsonable{
     enum GetBasket implements BasketCommand, PersistentEntity.ReplyType<BasketState> {
         INSTANCE
     }
+    enum CheckOut implements BasketCommand, PersistentEntity.ReplyType<Done> {
+        INSTANCE
+    }
 
     @Value
     class AddItem implements BasketCommand, PersistentEntity.ReplyType<Done>{

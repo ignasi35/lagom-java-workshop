@@ -6,7 +6,7 @@ import akka.Done;
 import akka.actor.ActorSystem;
 import akka.testkit.JavaTestKit;
 import com.example.basket.impl.entity.BasketCommand;
-import com.example.basket.impl.entity.BasketEvent;
+import com.example.basket.impl.entity.PEBasketEvent;
 import com.example.basket.impl.entity.BasketState;
 import com.example.basket.impl.entity.DomainBasketItem;
 import com.lightbend.lagom.javadsl.testkit.PersistentEntityTestDriver;
@@ -47,17 +47,17 @@ public class BasketEntityTest {
         BasketCommand.AddItem cmd2 = new BasketCommand.AddItem(bananaId, 1);
         BasketCommand.GetBasket cmd3 = BasketCommand.GetBasket.INSTANCE;
 
-        PersistentEntityTestDriver<BasketCommand, BasketEvent, BasketState> driver =
+        PersistentEntityTestDriver<BasketCommand, PEBasketEvent, BasketState> driver =
                 new PersistentEntityTestDriver<>(system, new BasketEntity(), bid.toString());
 
 
         // add some oranges
-        Outcome<BasketEvent, BasketState> outcome1 = driver.run(cmd1);
+        Outcome<PEBasketEvent, BasketState> outcome1 = driver.run(cmd1);
         assertEquals(Done.getInstance(), outcome1.getReplies().get(0));
         assertEquals(Collections.emptyList(), outcome1.issues());
 
         // and then add some bananas. Finally get the basket.
-        Outcome<BasketEvent, BasketState> outcome3 = driver.run(cmd2, cmd3);
+        Outcome<PEBasketEvent, BasketState> outcome3 = driver.run(cmd2, cmd3);
 
         PSequence<DomainBasketItem> items = TreePVector.<DomainBasketItem>empty()
                 .plus(new DomainBasketItem(orangeId, 3))

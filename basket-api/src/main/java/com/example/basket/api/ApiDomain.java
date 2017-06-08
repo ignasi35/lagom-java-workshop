@@ -17,10 +17,12 @@ public interface ApiDomain {
     final class Basket {
 
         public final UUID id;
+        private PSequence<BasketItem> items;
 
         @JsonCreator
         public Basket(UUID id, PSequence<BasketItem> items) {
             this.id = id;
+            this.items = items;
         }
 
         public static Basket with(UUID id, BasketItem... items){

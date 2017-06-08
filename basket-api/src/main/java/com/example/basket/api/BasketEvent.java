@@ -13,6 +13,7 @@ import java.util.UUID;
         @JsonSubTypes.Type(value = BasketEvent.BasketCreated.class, name = "basket-created"),
         @JsonSubTypes.Type(value = BasketEvent.BasketItemAdded.class, name = "basket-item-added"),
         @JsonSubTypes.Type(value = BasketEvent.BasketItemRemoved.class, name = "basket-item-removed"),
+        @JsonSubTypes.Type(value = BasketEvent.BasketCheckedOut.class, name = "basket-checked-out")
 })
 public interface BasketEvent {
 
@@ -20,7 +21,7 @@ public interface BasketEvent {
 
     @Value
     final class BasketCreated implements BasketEvent {
-        public final String id;
+        private final String id;
 
         @JsonCreator
         public BasketCreated(UUID id) {
@@ -30,11 +31,11 @@ public interface BasketEvent {
     }
 
     @Value
-    final class BasketItemAdded implements BasketEvent {
-        public final Basket basket;
+    final class BasketCheckedOut implements BasketEvent {
+        private final Basket basket;
 
         @JsonCreator
-        public BasketItemAdded(Basket basket) {
+        public BasketCheckedOut(Basket basket) {
             this.basket = basket;
         }
 
@@ -45,12 +46,35 @@ public interface BasketEvent {
     }
 
     @Value
-    final class BasketItemRemoved implements BasketEvent {
-        public final Basket basket;
+    final class BasketItemAdded implements BasketEvent {
+        private final Basket basket;
+        private final UUID itemId;
+        private final int count;
 
         @JsonCreator
-        public BasketItemRemoved(Basket basket) {
+        public BasketItemAdded(Basket basket, UUID itemId, int count) {
             this.basket = basket;
+            this.itemId = itemId;
+            this.count = count;
+        }
+
+        @Override
+        public String getId() {
+            return basket.getId().toString();
+        }
+    }
+
+    @Value
+    final class BasketItemRemoved implements BasketEvent {
+        private final Basket basket;
+        private final UUID itemId;
+        private final int count;
+
+        @JsonCreator
+        public BasketItemRemoved(Basket basket, UUID itemId, int count) {
+            this.basket = basket;
+            this.itemId = itemId;
+            this.count = count;
         }
 
         @Override
