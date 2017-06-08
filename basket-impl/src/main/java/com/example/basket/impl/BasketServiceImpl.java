@@ -50,6 +50,7 @@ public class BasketServiceImpl implements BasketService {
     @Override
     public ServiceCall<BasketItem, Done> deleteItem(UUID id) {
         return item ->
+                // Exercise 002: implement deletion
                 CompletableFuture.completedFuture(Done.getInstance())
                 ;
     }
