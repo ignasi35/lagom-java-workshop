@@ -58,5 +58,7 @@ public class InventoryEntityTest {
         assertEquals( new Integer(900), outcome.getReplies().get(1));
     }
 
+    // Exercise 4: create a test and code so that when you are running out of stock an exception
+    // is thrown as a response to a DecreaseInventory command.
 
 }

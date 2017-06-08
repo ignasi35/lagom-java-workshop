@@ -33,8 +33,12 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
 
 
     private Persist increaseInventory(IncreaseInventory cmd, CommandContext ctx) {
-        // Exercise 3: update the state to contain the new items that arrived
-
+        int countAfterIncreasing = cmd.getCount() + state().getCurrentCount();
+        PEInventoryIncreased evt = new PEInventoryIncreased(
+                cmd.getCount(),
+                countAfterIncreasing,
+                cmd.getItemId());
+        return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterIncreasing()));
     }
 
     private Persist decreaseInventory(DecreaseInventory cmd, CommandContext ctx) {
