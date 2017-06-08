@@ -58,7 +58,19 @@ public class InventoryEntityTest {
         assertEquals( new Integer(900), outcome.getReplies().get(1));
     }
 
-    // Exercise 4: create a test and code so that when you are running out of stock an exception
-    // is thrown as a response to a DecreaseInventory command.
+    @Test
+    public void decreaseInventoryBelowStock() {
+        PersistentEntityTestDriver<InventoryCommand, PEInventoryEvent, InventoryState> driver =
+                new PersistentEntityTestDriver<>(system, new InventoryEntity(), "test-id");
+
+        UUID orangesId = UUID.randomUUID();
+        IncreaseInventory add10 = new IncreaseInventory("oranges", orangesId, 10);
+        DecreaseInventory remove11 = new DecreaseInventory(orangesId, 100);
+        Outcome<PEInventoryEvent, InventoryState> outcome =
+                driver.run(add10, remove11);
+
+        assertEquals( new Integer(10), outcome.getReplies().get(0));
+        assertEquals( new InsuffucientStock(orangesId), outcome.getReplies().get(1));
+    }
 
 }

@@ -1,15 +1,11 @@
 package com.example.inventory.impl.entity;
 
-import akka.japi.Effect;
 import com.example.inventory.impl.entity.InventoryCommand.DecreaseInventory;
 import com.example.inventory.impl.entity.InventoryCommand.IncreaseInventory;
 import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryDecreased;
 import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryIncreased;
-import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryItemLabelled;
 import com.lightbend.lagom.javadsl.persistence.PersistentEntity;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 
@@ -19,6 +15,7 @@ import java.util.Optional;
  * <p>
  * Also, a shipment only arrives at a single location on a given time.
  */
+@SuppressWarnings("unchecked")
 public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInventoryEvent, InventoryState> {
     @Override
     public Behavior initialBehavior(Optional<InventoryState> snapshotState) {
@@ -42,13 +39,21 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
     }
 
     private Persist decreaseInventory(DecreaseInventory cmd, CommandContext ctx) {
-        int countAfterDecreasing = state().getCurrentCount() - cmd.getCount();
-        PEInventoryDecreased evt =
-                new PEInventoryDecreased(
-                        cmd.getCount(),
-                        countAfterDecreasing,
-                        cmd.getItemId());
-        return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterDecreasing()));
+
+        if (state().getCurrentCount() < cmd.getCount()) {
+            System.out.println(" INSUFFICIENT STOCK!!!");
+            ctx.commandFailed(new InsuffucientStock(cmd.getItemId()));
+            return ctx.done();
+        } else {
+            int countAfterDecreasing = state().getCurrentCount() - cmd.getCount();
+            PEInventoryDecreased evt =
+                    new PEInventoryDecreased(
+                            cmd.getCount(),
+                            countAfterDecreasing,
+                            cmd.getItemId());
+            return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterDecreasing()));
+        }
+
     }
 
 }
