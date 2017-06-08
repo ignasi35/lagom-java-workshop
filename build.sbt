@@ -8,9 +8,8 @@ lazy val `lagom-java-workshop` = (project in file("."))
   .aggregate(
     `basket-api`, `basket-impl`,
     `inventory-api`, `inventory-impl`
-    //    , `order-api`, `order-impl`
-    //    , `delivery-api`, `delivery-impl`
   )
+
 
 lazy val `basket-api` = (project in file("basket-api"))
   .settings(common: _*)

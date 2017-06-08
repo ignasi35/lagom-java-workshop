@@ -39,10 +39,10 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
             List<PEInventoryEvent> list = Arrays.asList(
                     new PEInventoryItemLabelled(cmd.getName(), cmd.getItemId()),
                     evt);
-            Effect effect = () -> ctx.reply(Done.getInstance());
+            Effect effect = () -> ctx.reply(evt.getCountAfterIncreasing());
             return ctx.thenPersistAll(list, effect);
         } else {
-            return ctx.thenPersist(evt, e -> ctx.reply(Done.getInstance()));
+            return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterIncreasing()));
 
         }
     }
@@ -60,7 +60,7 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
                             cmd.getCount(),
                             countAfterDecreasing,
                             cmd.getItemId());
-            return ctx.thenPersist(evt, e -> ctx.reply(Done.getInstance()));
+            return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterDecreasing()));
         }
 
     }

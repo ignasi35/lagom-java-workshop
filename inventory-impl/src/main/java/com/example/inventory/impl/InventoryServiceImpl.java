@@ -47,8 +47,9 @@ public class InventoryServiceImpl implements InventoryService {
                             return event.getBasket().getItems();
                         })
                         .mapAsync(1, basketItem ->
-                                refFor(basketItem.getId()).ask(new DecreaseInventory(basketItem.getId(), basketItem.getCount()))
-                        )
+                                refFor(basketItem.getId())
+                                        .ask(new DecreaseInventory(basketItem.getId(), basketItem.getCount()))
+                        ).map(ignored -> Done.getInstance())
         );
     }
 
@@ -57,11 +58,11 @@ public class InventoryServiceImpl implements InventoryService {
     public ServiceCall<Shipment, Done> provisionItems() {
         return shipment ->
                 refFor(shipment.getId())
-                        .ask(
-                                new IncreaseInventory(
-                                        shipment.getName(),
-                                        shipment.getId(),
-                                        shipment.getCount()))
+                        .ask(new IncreaseInventory(
+                                shipment.getName(),
+                                shipment.getId(),
+                                shipment.getCount()))
+                        .thenApply(ignored -> Done.getInstance())
                 ;
     }
 

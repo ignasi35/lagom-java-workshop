@@ -14,7 +14,7 @@ import java.util.UUID;
 public interface InventoryCommand extends Jsonable{
 
     @Value
-    class IncreaseInventory implements InventoryCommand, PersistentEntity.ReplyType<Done> {
+    class IncreaseInventory implements InventoryCommand, PersistentEntity.ReplyType<Integer> {
         private String name;
         private UUID itemId;
         private int count;
@@ -27,7 +27,7 @@ public interface InventoryCommand extends Jsonable{
         }
     }
     @Value
-    class DecreaseInventory implements InventoryCommand, PersistentEntity.ReplyType<Done> {
+    class DecreaseInventory implements InventoryCommand, PersistentEntity.ReplyType<Integer> {
         private UUID itemId;
         private int count;
 
