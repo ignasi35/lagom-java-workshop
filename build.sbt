@@ -24,6 +24,8 @@ lazy val `basket-impl` = (project in file("basket-impl"))
   .settings(common: _*)
   .settings(
     libraryDependencies ++= Seq(
+      lagomJavadslPersistenceCassandra,
+      lagomJavadslKafkaBroker,
       lagomJavadslTestKit,
       lagomJavadslJackson,
       lombok
@@ -31,7 +33,6 @@ lazy val `basket-impl` = (project in file("basket-impl"))
   )
   .settings(lagomForkedTestSettings: _*)
   .dependsOn(`basket-api`)
-
 
 lazy val `inventory-api` = (project in file("inventory-api"))
   .settings(common: _*)
@@ -56,7 +57,7 @@ lazy val `inventory-impl` = (project in file("inventory-impl"))
     )
   )
   .settings(lagomForkedTestSettings: _*)
-  .dependsOn(`inventory-api`)
+  .dependsOn(`inventory-api`, `basket-api`)
 
 
 val lombok = "org.projectlombok" % "lombok" % "1.16.10"
@@ -64,4 +65,3 @@ val lombok = "org.projectlombok" % "lombok" % "1.16.10"
 def common = Seq(
   javacOptions in compile += "-parameters"
 )
-

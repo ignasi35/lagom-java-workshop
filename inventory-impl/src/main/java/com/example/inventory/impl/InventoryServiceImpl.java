@@ -2,15 +2,19 @@ package com.example.inventory.impl;
 
 import akka.Done;
 import akka.japi.Pair;
+import akka.stream.javadsl.Flow;
+import com.example.basket.api.BasketEvent;
+import com.example.basket.api.BasketService;
+
 import com.example.inventory.api.ApiDomain.Shipment;
 import com.example.inventory.api.InventoryEvent;
-import com.example.inventory.api.InventoryEvent.ItemProvisioned;
+import com.example.inventory.api.InventoryEvent.*;
 import com.example.inventory.api.InventoryService;
 import com.example.inventory.impl.entity.InventoryCommand;
-import com.example.inventory.impl.entity.InventoryCommand.IncreaseInventory;
+import com.example.inventory.impl.entity.InventoryCommand.*;
 import com.example.inventory.impl.entity.InventoryEntity;
 import com.example.inventory.impl.entity.PEInventoryEvent;
-import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryIncreased;
+import com.example.inventory.impl.entity.PEInventoryEvent.*;
 import com.lightbend.lagom.javadsl.api.ServiceCall;
 import com.lightbend.lagom.javadsl.api.broker.Topic;
 import com.lightbend.lagom.javadsl.broker.TopicProducer;
@@ -27,13 +31,16 @@ import java.util.UUID;
 public class InventoryServiceImpl implements InventoryService {
 
     private final PersistentEntityRegistry registry;
+    private BasketService basketService;
 
     @Inject
-    public InventoryServiceImpl(PersistentEntityRegistry registry) {
+    public InventoryServiceImpl(PersistentEntityRegistry registry, BasketService basketService) {
         this.registry = registry;
+        this.basketService = basketService;
         registry.register(InventoryEntity.class);
-    }
 
+        // Exercise 5: consume basket events and decrease inventory when a basketCheckout arrives.
+    }
 
     @Override
     public ServiceCall<Shipment, Done> provisionItems() {
@@ -47,7 +54,6 @@ public class InventoryServiceImpl implements InventoryService {
                 ;
     }
 
-
     @Override
     public Topic<InventoryEvent> inventoryEvents() {
         return TopicProducer.singleStreamWithOffset(
@@ -59,40 +65,16 @@ public class InventoryServiceImpl implements InventoryService {
         );
     }
 
-    private PersistentEntityRef<InventoryCommand> refFor(UUID id) {
-        return registry.refFor(InventoryEntity.class, "main-warehouse-" + id.toString());
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     private Pair<InventoryEvent, Offset> toTopic(Pair<PEInventoryEvent, Offset> pair) {
         PEInventoryIncreased evt = (PEInventoryIncreased) pair.first();
+
+
         return Pair.create(new ItemProvisioned(evt.getItemId(), evt.getCountAfterIncreasing()), pair.second());
     }
 
+    private PersistentEntityRef<InventoryCommand> refFor(UUID id) {
+        return registry
+                .refFor(InventoryEntity.class, "main-warehouse-" + id.toString());
+    }
 
 }

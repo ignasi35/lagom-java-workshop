@@ -1,11 +1,13 @@
 package com.example.inventory.impl.entity;
 
-import com.example.inventory.impl.entity.InventoryCommand.DecreaseInventory;
-import com.example.inventory.impl.entity.InventoryCommand.IncreaseInventory;
-import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryDecreased;
-import com.example.inventory.impl.entity.PEInventoryEvent.PEInventoryIncreased;
+import akka.Done;
+import akka.japi.Effect;
+import com.example.inventory.impl.entity.InventoryCommand.*;
+import com.example.inventory.impl.entity.PEInventoryEvent.*;
 import com.lightbend.lagom.javadsl.persistence.PersistentEntity;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -23,6 +25,7 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
         BehaviorBuilder b = newBehaviorBuilder(snapshotState.orElse(new InventoryState()));
         b.setCommandHandler(IncreaseInventory.class, this::increaseInventory);
         b.setCommandHandler(DecreaseInventory.class, this::decreaseInventory);
+        b.setEventHandler(PEInventoryItemLabelled.class, (evt) -> state().rename(evt.getItemName()));
         b.setEventHandler(PEInventoryIncreased.class, (evt) -> state().increase(evt.getByHowMuch()));
         b.setEventHandler(PEInventoryDecreased.class, (evt) -> state().increase(-evt.getByHowMuch()));
         return b.build();
@@ -30,12 +33,18 @@ public class InventoryEntity extends PersistentEntity<InventoryCommand, PEInvent
 
 
     private Persist increaseInventory(IncreaseInventory cmd, CommandContext ctx) {
-        int countAfterIncreasing = cmd.getCount() + state().getCurrentCount();
-        PEInventoryIncreased evt = new PEInventoryIncreased(
-                cmd.getCount(),
-                countAfterIncreasing,
-                cmd.getItemId());
-        return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterIncreasing()));
+        PEInventoryIncreased evt =
+                new PEInventoryIncreased(cmd.getCount(), cmd.getCount() + state().getCurrentCount(), cmd.getItemId());
+        if (!state().getName().isPresent()) {
+            List<PEInventoryEvent> list = Arrays.asList(
+                    new PEInventoryItemLabelled(cmd.getName(), cmd.getItemId()),
+                    evt);
+            Effect effect = () -> ctx.reply(evt.getCountAfterIncreasing());
+            return ctx.thenPersistAll(list, effect);
+        } else {
+            return ctx.thenPersist(evt, e -> ctx.reply(evt.getCountAfterIncreasing()));
+
+        }
     }
 
     private Persist decreaseInventory(DecreaseInventory cmd, CommandContext ctx) {

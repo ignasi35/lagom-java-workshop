@@ -2,99 +2,103 @@ package com.example.basket.impl;
 
 import akka.Done;
 import akka.NotUsed;
+import akka.japi.Pair;
+import akka.stream.javadsl.Source;
 import com.example.basket.api.ApiDomain.Basket;
 import com.example.basket.api.ApiDomain.BasketItem;
+import com.example.basket.api.BasketEvent;
 import com.example.basket.api.BasketService;
+import com.example.basket.impl.entity.BasketCommand;
+import com.example.basket.impl.entity.BasketCommand.AddItem;
+import com.example.basket.impl.entity.BasketCommand.GetBasket;
+import com.example.basket.impl.entity.BasketState;
+import com.example.basket.impl.entity.PEBasketEvent;
+import com.example.basket.impl.entity.PEBasketEvent.CheckedOut;
+import com.example.basket.impl.entity.PEBasketEvent.ItemAdded;
+import com.example.basket.impl.entity.PEBasketEvent.ItemDeleted;
 import com.lightbend.lagom.javadsl.api.ServiceCall;
-import com.lightbend.lagom.javadsl.api.transport.BadRequest;
-import com.lightbend.lagom.javadsl.api.transport.NotFound;
+import com.lightbend.lagom.javadsl.api.broker.Topic;
+import com.lightbend.lagom.javadsl.broker.TopicProducer;
+import com.lightbend.lagom.javadsl.persistence.AggregateEventTag;
+import com.lightbend.lagom.javadsl.persistence.Offset;
+import com.lightbend.lagom.javadsl.persistence.PersistentEntityRef;
+import com.lightbend.lagom.javadsl.persistence.PersistentEntityRegistry;
 import org.pcollections.TreePVector;
 
+import javax.inject.Inject;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-
 
 public class BasketServiceImpl implements BasketService {
 
-    ConcurrentHashMap<UUID, Basket> baskets = new ConcurrentHashMap<>();
+    private final PersistentEntityRegistry registry;
 
-    public BasketServiceImpl() {
-
+    @Inject
+    public BasketServiceImpl(PersistentEntityRegistry registry) {
+        this.registry = registry;
+        registry.register(com.example.basket.impl.BasketEntity.class);
     }
 
     @Override
     public ServiceCall<NotUsed, Basket> getBasket(UUID id) {
-        return req -> {
-            Basket basket = baskets.get(id);
-            if (basket == null)
-                throw new NotFound("Basket not found.");
-            return CompletableFuture.completedFuture(basket);
-        };
-
+        return request -> refFor(id)
+                .ask(GetBasket.INSTANCE)
+                .thenApply(state -> toApi(id, state));
     }
 
     @Override
     public ServiceCall<BasketItem, Done> addItem(UUID id) {
-        return item -> {
-            baskets.putIfAbsent(id, new Basket(id, TreePVector.empty()));
-            baskets.computeIfPresent(id, addIntoBasket(item));
-            return CompletableFuture.completedFuture(Done.getInstance());
-        };
-    }
-
-    private BiFunction<UUID, Basket, Basket> addIntoBasket(BasketItem item) {
-        return (id, oldBasket) -> new Basket(id, oldBasket.getItems().plus(item));
+        return item -> refFor(id).ask(new AddItem(item.getId(), item.getCount()));
     }
 
     @Override
     public ServiceCall<BasketItem, Done> deleteItem(UUID id) {
-        return item -> {
-            if (baskets.get(id) == null)
-                throw new NotFound("Basket not found");
-            baskets.compute(id, removeFromBasket(item));
-            return CompletableFuture.completedFuture(Done.getInstance());
-        };
+        return item -> refFor(id).ask(new AddItem(item.getId(), item.getCount()));
     }
 
-    /*
-
- ## Add 3 items of something
- curl -X POST -d '{"count":3, "id":"3666666F-3333-5555-2222-F31111EE0000"}' http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C/items
- ## Add 3 more items of something
- curl -X POST -d '{"count":3, "id":"3666666F-3333-5555-2222-F31111EE0000"}' http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C/items
-
- # check the basket
- curl http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C
-
- # remove 2 items of that something
- curl -X DELETE -d '{"count":2, "id":"3666666F-3333-5555-2222-F31111EE0000"}' http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C/items
- # check the basket (only 4 are left)
- curl http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C
-
- # try to remove 6
- curl -X DELETE -d '{"count":6, "id":"3666666F-3333-5555-2222-F31111EE0000"}' http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C/items
- # check the basket (only 4 are left)
- curl http://localhost:9000/api/basket/3C90204F-2692-4934-B63B-F3E223EEB41C
-
-
-     */
-
-    private BiFunction<UUID, Basket, Basket> removeFromBasket(BasketItem item) {
-        return (id, oldBasket) -> {
-            int currentCount = oldBasket.getItems().stream().filter(it -> it.getId().equals(item.getId())).mapToInt(BasketItem::getCount).sum();
-
-            if (currentCount < item.getCount())
-                throw new BadRequest("Not enough items");
-
-            TreePVector<BasketItem> newItemList  = TreePVector.from(
-                    oldBasket.getItems().stream().filter(it -> !it.getId().equals(item.getId())).collect(Collectors.toList())
-            ).plus(new BasketItem(item.getId(), currentCount - item.getCount()));
-            return new Basket(id, newItemList);
-        };
-
+    @Override
+    public Topic<BasketEvent> basketEvents() {
+        return TopicProducer.taggedStreamWithOffset(PEBasketEvent.TAG.allTags(), this::streamForTag);
     }
 
+
+    private Source<Pair<BasketEvent, Offset>, ?> streamForTag(AggregateEventTag<PEBasketEvent> tag, Offset offset) {
+        return registry
+                .eventStream(tag, offset)
+                .filter(eventOffset ->
+                        eventOffset.first() instanceof ItemAdded ||
+                                eventOffset.first() instanceof ItemDeleted ||
+                                eventOffset.first() instanceof CheckedOut
+                )
+                .map(this::toTopic);
+    }
+
+    // --------------------
+
+    private Pair<BasketEvent, Offset> toTopic(Pair<PEBasketEvent, Offset> pair) {
+        BasketEvent res;
+        if (pair.first() instanceof PEBasketEvent.ItemAdded) {
+            ItemAdded evt = (ItemAdded) pair.first();
+            res = new BasketEvent.BasketItemAdded(toApi(evt.getBasketId(), evt.getBasket()), evt.getItemId(), evt.getCount());
+        } else if (pair.first() instanceof ItemDeleted) {
+            ItemDeleted evt = (ItemDeleted) pair.first();
+            res = new BasketEvent.BasketItemRemoved(toApi(evt.getBasketId(), evt.getBasket()), evt.getItemId(), evt.getCount());
+        } else{
+            // checkout
+            CheckedOut evt = (CheckedOut) pair.first();
+            res = new BasketEvent.BasketCheckedOut(toApi(evt.getBasketId(), evt.getBasket()));
+        }
+        return Pair.create(res, pair.second());
+    }
+
+    private Basket toApi(UUID basketId, BasketState state) {
+        List<BasketItem> items = state.getItems().stream().map(dbi -> new BasketItem(dbi.getId(), dbi.getNumberOfItems())).collect(Collectors.toList());
+        return new Basket(basketId, TreePVector.from(items));
+    }
+
+    // --------------------
+    private PersistentEntityRef<BasketCommand> refFor(UUID id) {
+        return registry.refFor(BasketEntity.class, id.toString());
+    }
 }

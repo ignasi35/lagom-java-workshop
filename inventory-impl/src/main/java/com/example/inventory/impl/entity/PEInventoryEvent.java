@@ -1,5 +1,6 @@
 package com.example.inventory.impl.entity;
 
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.lightbend.lagom.javadsl.persistence.AggregateEvent;
 import com.lightbend.lagom.javadsl.persistence.AggregateEventTag;
