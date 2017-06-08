@@ -6,7 +6,8 @@ scalaVersion in ThisBuild := "2.11.8"
 
 lazy val `lagom-java-workshop` = (project in file("."))
   .aggregate(
-    `basket-api`, `basket-impl`
+    `basket-api`, `basket-impl`,
+    `inventory-api`, `inventory-impl`
   )
 
 lazy val `basket-api` = (project in file("basket-api"))
@@ -31,6 +32,31 @@ lazy val `basket-impl` = (project in file("basket-impl"))
   .settings(lagomForkedTestSettings: _*)
   .dependsOn(`basket-api`)
 
+
+lazy val `inventory-api` = (project in file("inventory-api"))
+  .settings(common: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      lagomJavadslApi,
+      lombok
+    )
+  )
+
+
+lazy val `inventory-impl` = (project in file("inventory-impl"))
+  .enablePlugins(LagomJava)
+  .settings(common: _*)
+  .settings(
+    libraryDependencies ++= Seq(
+      lagomJavadslPersistenceCassandra,
+      lagomJavadslKafkaBroker,
+      lagomJavadslTestKit,
+      lagomJavadslJackson,
+      lombok
+    )
+  )
+  .settings(lagomForkedTestSettings: _*)
+  .dependsOn(`inventory-api`)
 
 
 val lombok = "org.projectlombok" % "lombok" % "1.16.10"
